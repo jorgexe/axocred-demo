@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({
 })
 
 // Use the native audio model for voice interactions
-const model = "gemini-2.5-flash-preview-native-audio-dialog"
+const model = "gemini-live-2.5-flash-preview"
 
 const config = {
   responseModalities: [Modality.AUDIO],
