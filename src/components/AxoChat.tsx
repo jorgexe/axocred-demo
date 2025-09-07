@@ -322,7 +322,7 @@ export default function AxoChat({ isOpen, onClose, className }: AxoChatProps) {
           <div>
             <h3 className="font-semibold text-gray-900">Axo</h3>
             <p className="text-xs text-green-600 flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse block"></span>
               En línea
             </p>
           </div>

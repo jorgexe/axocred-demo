@@ -2,21 +2,17 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { 
   History, 
   MessageSquare, 
   Trash2, 
-  Calendar,
   Clock,
   Search,
   X,
-  ChevronLeft,
-  MoreVertical,
   Download
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { conversationStorage, type ConversationSummary, type StoredConversation, type ConversationMessage } from "@/lib/conversationStorage"
+import { conversationStorage, type ConversationSummary, type StoredConversation } from "@/lib/conversationStorage"
 
 interface ConversationHistoryProps {
   isOpen: boolean
