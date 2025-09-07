@@ -13,10 +13,13 @@ import {
   Maximize2,
   User,
   MessageSquare,
-  Volume2
+  Volume2,
+  History
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useVoiceAdvanced } from "@/hooks/useVoiceAdvanced"
+import { conversationStorage, type ConversationMessage } from "@/lib/conversationStorage"
+import ConversationHistory from "@/components/ConversationHistory"
 
 interface Message {
   id: string
@@ -61,6 +64,8 @@ export default function AxoChat({ isOpen, onClose, className }: AxoChatProps) {
   const [isMinimized, setIsMinimized] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -81,6 +86,37 @@ export default function AxoChat({ isOpen, onClose, className }: AxoChatProps) {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [isOpen, isMinimized])
+
+  // Save conversation when messages change or chat closes
+  useEffect(() => {
+    // Save when there are user messages and either chat is closing or we have a significant conversation
+    const hasUserMessages = messages.some(msg => msg.role === 'user')
+    const shouldSave = hasUserMessages && messages.length > 1
+    
+    if (shouldSave) {
+      const conversationMessages: ConversationMessage[] = messages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        role: msg.role,
+        timestamp: msg.timestamp
+      }))
+      
+      if (currentConversationId) {
+        // Update existing conversation
+        const conversations = conversationStorage.getAllConversations()
+        const existingIndex = conversations.findIndex(conv => conv.id === currentConversationId)
+        if (existingIndex !== -1) {
+          conversations[existingIndex].messages = conversationMessages
+          conversations[existingIndex].updatedAt = new Date()
+          localStorage.setItem('axocred_conversations', JSON.stringify(conversations))
+        }
+      } else {
+        // Create new conversation
+        const savedId = conversationStorage.saveConversation(conversationMessages)
+        setCurrentConversationId(savedId)
+      }
+    }
+  }, [messages, currentConversationId])
 
   const sendMessage = async (content: string) => {
     if (!content.trim() || isLoading) return
@@ -235,6 +271,34 @@ export default function AxoChat({ isOpen, onClose, className }: AxoChatProps) {
     })
   }
 
+  // Load a conversation from history
+  const loadConversation = (conversationId: string) => {
+    const conversation = conversationStorage.getConversation(conversationId)
+    if (conversation) {
+      const loadedMessages: Message[] = conversation.messages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        role: msg.role,
+        timestamp: msg.timestamp
+      }))
+      setMessages(loadedMessages)
+      setCurrentConversationId(conversationId)
+      setShowHistory(false)
+    }
+  }
+
+  // Start a new conversation
+  const startNewConversation = () => {
+    setMessages([{
+      id: '1',
+      content: '¡Hola! Soy Axo, tu asistente financiero personal. ¿En qué puedo ayudarte hoy?',
+      role: 'assistant',
+      timestamp: new Date()
+    }])
+    setCurrentConversationId(null)
+    setShowHistory(false)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -258,13 +322,23 @@ export default function AxoChat({ isOpen, onClose, className }: AxoChatProps) {
           <div>
             <h3 className="font-semibold text-gray-900">Axo</h3>
             <p className="text-xs text-green-600 flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse block"></span>
               En línea
             </p>
           </div>
         </div>
         
         <div className="flex items-center space-x-1">
+          {/* History Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowHistory(true)}
+            className="h-8 w-8"
+            title="Ver historial de conversaciones"
+          >
+            <History className="w-4 h-4" />
+          </Button>
           {/* Voice/Text Mode Toggle */}
           <Button
             variant={isVoiceMode ? "default" : "ghost"}
@@ -555,6 +629,16 @@ export default function AxoChat({ isOpen, onClose, className }: AxoChatProps) {
             )}
           </div>
         </>
+      )}
+      
+      {/* Conversation History Modal */}
+      {showHistory && (
+        <ConversationHistory
+          isOpen={showHistory}
+          onClose={() => setShowHistory(false)}
+          onLoadConversation={loadConversation}
+          onNewConversation={startNewConversation}
+        />
       )}
     </div>
   )
