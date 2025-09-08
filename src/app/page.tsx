@@ -52,7 +52,7 @@ export default function NeobancoDemo() {
   // Datos simulados del usuario
   const userData = {
     name: "María González",
-    balance: 12450.50,
+    balance: 1230.00,
     creditLimit: 50000,
     creditUsed: 18500,
     nextPayment: {
@@ -61,10 +61,11 @@ export default function NeobancoDemo() {
       daysLeft: calculateDaysToPayment(paymentDate)
     },
     transactions: [
-      { id: 1, description: "Supermercado", amount: -850, date: "02 Sep", type: "expense" },
-      { id: 2, description: "Gasolina", amount: -1200, date: "01 Sep", type: "expense" },
-      { id: 3, description: "Salario", amount: 15000, date: "01 Sep", type: "income" },
-      { id: 4, description: "Farmacia", amount: -450, date: "31 Ago", type: "expense" },
+      { id: 1, description: "Hospital", amount: -3786, date: "07 Sep", type: "expense" },
+      { id: 2, description: "Supermercado", amount: -850, date: "02 Sep", type: "expense" },
+      { id: 3, description: "Gasolina", amount: -1200, date: "01 Sep", type: "expense" },
+      { id: 4, description: "Salario", amount: 15000, date: "01 Sep", type: "income" },
+      { id: 5, description: "Farmacia", amount: -450, date: "31 Ago", type: "expense" },
     ]
   }
 
@@ -72,7 +73,7 @@ export default function NeobancoDemo() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowNotification(true)
-    }, 2000)
+    }, 20000) // 20 segundos
     return () => clearTimeout(timer)
   }, [])
 
