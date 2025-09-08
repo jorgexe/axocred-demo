@@ -23,6 +23,31 @@ export default function NeobancoDemo() {
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [chatOpen, setChatOpen] = useState(false)
   const [showNotification, setShowNotification] = useState(false)
+  const [paymentDate, setPaymentDate] = useState(() => {
+    // Fecha inicial: hoy + 11 días
+    const today = new Date()
+    const initialPaymentDate = new Date(today)
+    initialPaymentDate.setDate(today.getDate() + 11)
+    return initialPaymentDate
+  })
+  const [paymentAmount] = useState(3000)
+
+  // Función para calcular días hasta la fecha de corte (11 días desde hoy inicialmente)
+  const calculateDaysToPayment = (date: Date) => {
+    const today = new Date()
+    const diffTime = date.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return Math.max(0, diffDays)
+  }
+
+  // Función para formatear fecha
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("es-MX", { 
+      day: "2-digit", 
+      month: "short", 
+      year: "numeric" 
+    })
+  }
 
   // Datos simulados del usuario
   const userData = {
@@ -31,9 +56,9 @@ export default function NeobancoDemo() {
     creditLimit: 50000,
     creditUsed: 18500,
     nextPayment: {
-      amount: 3000,
-      date: "15 Sep 2024",
-      daysLeft: 11
+      amount: paymentAmount,
+      date: formatDate(paymentDate),
+      daysLeft: calculateDaysToPayment(paymentDate)
     },
     transactions: [
       { id: 1, description: "Supermercado", amount: -850, date: "02 Sep", type: "expense" },
@@ -54,6 +79,16 @@ export default function NeobancoDemo() {
   const startChat = () => {
     setChatOpen(true)
     setShowNotification(false)
+  }
+
+  const handleChatClose = () => {
+    setChatOpen(false)
+    // Agregar 15 días a la fecha de pago cuando se cierre el chat
+    setPaymentDate(prevDate => {
+      const newDate = new Date(prevDate)
+      newDate.setDate(prevDate.getDate() + 15)
+      return newDate
+    })
   }
 
   return (
@@ -92,9 +127,9 @@ export default function NeobancoDemo() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">N</span>
+                <span className="text-white font-bold text-sm">F</span>
               </div>
-              <h1 className="text-xl font-bold text-gray-900">NuBank</h1>
+              <h1 className="text-xl font-bold text-gray-900">FintechBank</h1>
             </div>
             <div className="flex items-center space-x-4">
               <Button variant="ghost" size="icon">
@@ -162,6 +197,30 @@ export default function NeobancoDemo() {
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Usado: ${userData.creditUsed.toLocaleString()}</span>
                   <span>Límite: ${userData.creditLimit.toLocaleString()}</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Personal Loan Info */}
+            <Card className="p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Crédito Personal</h3>
+                <DollarSign className="w-5 h-5 text-gray-400" />
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Monto total</span>
+                  <span className="font-semibold">$120,000.00</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-600 h-2 rounded-full" 
+                    style={{ width: `${(45000 / 120000) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Pagado: $45,000.00</span>
+                  <span>Restante: $75,000.00</span>
                 </div>
               </div>
             </Card>
@@ -257,7 +316,7 @@ export default function NeobancoDemo() {
 
       <AxoChat 
         isOpen={chatOpen} 
-        onClose={() => setChatOpen(false)} 
+        onClose={handleChatClose} 
       />
     </div>
   )
