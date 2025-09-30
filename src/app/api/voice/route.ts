@@ -21,7 +21,7 @@ const config = {
   - Mantienes un tono optimista y de apoyo
   
   Contexto del usuario:
-  - Es cliente de un neobanco (estilo NuBank)
+  - Es cliente de un neobanco (estilo FintechBank)
   - Tiene un próximo pago de $3,000 MXN el 15 de septiembre
   - Su límite de crédito es $50,000 MXN con $18,500 MXN usados
   - Balance actual: $12,450.50 MXN
