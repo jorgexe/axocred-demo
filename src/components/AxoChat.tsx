@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useVoiceAdvanced } from "@/hooks/useVoiceAdvanced"
 import { conversationStorage, type ConversationMessage } from "@/lib/conversationStorage"
+import { extractAssistantActions, deriveActionsFromText, type AssistantAction } from "@/lib/assistantActions"
 import ConversationHistory from "@/components/ConversationHistory"
 import ReactMarkdown from "react-markdown"
 
@@ -32,9 +33,10 @@ interface AxoChatProps {
   isOpen: boolean
   onClose: () => void
   className?: string
+  onAssistantAction?: (action: AssistantAction) => void
 }
 
-export default function AxoChat({ isOpen, onClose, className }: AxoChatProps) {
+export default function AxoChat({ isOpen, onClose, className, onAssistantAction }: AxoChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -183,14 +185,24 @@ export default function AxoChat({ isOpen, onClose, className }: AxoChatProps) {
         }
       }
 
-      // Mark streaming as complete
+      const { sanitized, actions } = extractAssistantActions(accumulatedContent)
+      const synthesizedActions = deriveActionsFromText(sanitized, actions)
+      const allActions = [...actions, ...synthesizedActions]
+
+      // Mark streaming as complete and persist sanitized content
       setMessages(prev => 
         prev.map(msg => 
           msg.id === assistantMessageId
-            ? { ...msg, isStreaming: false }
+            ? { ...msg, content: sanitized || accumulatedContent.trim(), isStreaming: false }
             : msg
         )
       )
+
+      if (allActions.length && onAssistantAction) {
+        allActions.forEach(action => {
+          onAssistantAction(action)
+        })
+      }
       
     } catch (error) {
       console.error("Error sending message:", error)
