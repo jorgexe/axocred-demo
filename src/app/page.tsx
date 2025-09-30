@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import AxoChat from "@/components/AxoChat"
 import { cn } from "@/lib/utils"
-import { demoUserProfile } from "@/lib/demoUser"
+import { demoUserProfile, type DemoUserProfile } from "@/lib/demoUser"
 import { parseNumericAmount, type AssistantAction } from "@/lib/assistantActions"
 import {
   CreditCard,
@@ -21,7 +21,13 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Sparkles,
-  Activity
+  Activity,
+  Target,
+  Pencil,
+  Plus,
+  Check,
+  X as XIcon,
+  Trash2
 } from "lucide-react"
 
 type Mood = "positivo" | "neutral" | "alerta"
@@ -41,6 +47,23 @@ interface TimelineEvent {
   timestamp: Date
 }
 
+type Goal = DemoUserProfile["goals"][number]
+type GoalStatus = Goal["status"]
+
+interface GoalFormState {
+  title: string
+  targetAmount: string
+  saved: string
+  deadline: string
+  status: GoalStatus
+}
+
+const GOAL_STATUS_LABELS: Record<GoalStatus, { label: string; badge: string }> = {
+  en_progreso: { label: "En progreso", badge: "bg-blue-50 text-blue-700" },
+  logrado: { label: "Logrado", badge: "bg-emerald-50 text-emerald-700" },
+  pausado: { label: "Pausado", badge: "bg-amber-50 text-amber-700" }
+}
+
 const INITIAL_PAYMENT_DATE = new Date(demoUserProfile.obligations.creditCard.nextPaymentDate)
 const INITIAL_MOOD: Mood = demoUserProfile.scores.financialHealth >= 75
   ? "positivo"
@@ -54,6 +77,13 @@ function createEventId() {
     return crypto.randomUUID()
   }
   return `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function createGoalId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID()
+  }
+  return `goal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function calculateDaysToPayment(date: Date) {
@@ -88,6 +118,14 @@ function formatCurrency(value: number) {
   })
 }
 
+function formatGoalDeadline(deadline: string) {
+  const date = new Date(deadline)
+  if (Number.isNaN(date.getTime())) {
+    return deadline
+  }
+  return formatDate(date)
+}
+
 const CATEGORY_ALIASES: Record<string, string[]> = {
   alimentos: ["alimentos", "comida", "comidas", "supermercado", "despensa"],
   transporte: ["transporte", "gasolina", "auto", "uber", "movilidad"],
@@ -115,12 +153,22 @@ function resolveBudgetKey(category: string) {
   return normalized
 }
 
+function normalizeGoalTitle(title: string) {
+  return normalizeValue(title)
+    .replace(/["“”'«»‹›„‚]/g, "")
+    .replace(/\s+/g, " ")
+}
+
 function isMood(value: unknown): value is Mood {
   return value === "positivo" || value === "neutral" || value === "alerta"
 }
 
 function isSeverity(value: unknown): value is InsightSeverity {
   return value === "info" || value === "success" || value === "warning"
+}
+
+function isGoalStatus(value: unknown): value is GoalStatus {
+  return value === "en_progreso" || value === "logrado" || value === "pausado"
 }
 
 function getMoodStyles(mood: Mood) {
@@ -156,6 +204,7 @@ export default function NeobancoDemo() {
     comment: demoUserProfile.scores.comment
   }))
 
+  const [goals, setGoals] = useState<Goal[]>(() => demoUserProfile.goals)
   const [budgets, setBudgets] = useState(() => demoUserProfile.budgets)
   const [insights, setInsights] = useState<Insight[]>(() => [
     {
@@ -172,6 +221,49 @@ export default function NeobancoDemo() {
     }
   ])
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([])
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
+  const [goalFormError, setGoalFormError] = useState<string | null>(null)
+  const [editingGoalForm, setEditingGoalForm] = useState<GoalFormState | null>(null)
+  const [isAddingGoal, setIsAddingGoal] = useState(false)
+  const [newGoalForm, setNewGoalForm] = useState<GoalFormState>({
+    title: "",
+    targetAmount: "",
+    saved: "",
+    deadline: "",
+    status: "en_progreso"
+  })
+  const [newGoalError, setNewGoalError] = useState<string | null>(null)
+
+  const resetNewGoalForm = useCallback(() => {
+    setNewGoalForm({
+      title: "",
+      targetAmount: "",
+      saved: "",
+      deadline: "",
+      status: "en_progreso"
+    })
+    setNewGoalError(null)
+  }, [])
+
+  const openGoalEditor = useCallback((goal: Goal) => {
+    setIsAddingGoal(false)
+    setNewGoalError(null)
+    setEditingGoalId(goal.id)
+    setGoalFormError(null)
+    setEditingGoalForm({
+      title: goal.title,
+      targetAmount: goal.targetAmount.toString(),
+      saved: goal.saved.toString(),
+      deadline: goal.deadline ? goal.deadline.slice(0, 10) : "",
+      status: goal.status
+    })
+  }, [])
+
+  const closeGoalEditor = useCallback(() => {
+    setEditingGoalId(null)
+    setEditingGoalForm(null)
+    setGoalFormError(null)
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -210,6 +302,159 @@ export default function NeobancoDemo() {
       return [event, ...prev].slice(0, 6)
     })
   }, [])
+
+  const handleEditGoalField = useCallback((field: keyof GoalFormState, value: string) => {
+    setEditingGoalForm(prev => {
+      if (!prev) return prev
+      if (field === "status") {
+        return {
+          ...prev,
+          status: isGoalStatus(value) ? value : prev.status
+        }
+      }
+      return {
+        ...prev,
+        [field]: value
+      }
+    })
+  }, [])
+
+  const handleSaveGoalEdit = useCallback(() => {
+    if (!editingGoalId || !editingGoalForm) {
+      return
+    }
+
+    setGoalFormError(null)
+
+    const trimmedTitle = editingGoalForm.title.trim()
+    if (!trimmedTitle) {
+      setGoalFormError("La meta necesita un título.")
+      return
+    }
+
+    const targetAmount = parseNumericAmount(editingGoalForm.targetAmount)
+    if (targetAmount === undefined || targetAmount <= 0) {
+      setGoalFormError("Ingresa un monto objetivo válido.")
+      return
+    }
+
+    const savedAmount = parseNumericAmount(editingGoalForm.saved)
+    if (savedAmount === undefined || savedAmount < 0) {
+      setGoalFormError("Ingresa un monto ahorrado válido.")
+      return
+    }
+
+    const deadlineValue = editingGoalForm.deadline
+      ? new Date(editingGoalForm.deadline).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10)
+
+    const statusValue = isGoalStatus(editingGoalForm.status)
+      ? editingGoalForm.status
+      : savedAmount >= targetAmount
+        ? "logrado"
+        : "en_progreso"
+
+    setGoals(prev => prev.map(goal => goal.id === editingGoalId
+      ? {
+        ...goal,
+        title: trimmedTitle,
+        targetAmount,
+        saved: savedAmount,
+        deadline: deadlineValue,
+        status: statusValue
+      }
+      : goal
+    ))
+
+    closeGoalEditor()
+
+    const message = `Meta "${trimmedTitle}" actualizada.`
+    focusWidget("goals", message)
+    logEvent("Meta actualizada", message)
+  }, [closeGoalEditor, editingGoalForm, editingGoalId, focusWidget, logEvent])
+
+  const handleRemoveGoal = useCallback((goal: Goal) => {
+    setGoals(prev => prev.filter(item => item.id !== goal.id))
+    if (editingGoalId === goal.id) {
+      closeGoalEditor()
+    }
+    const message = `Meta "${goal.title}" eliminada.`
+    focusWidget("goals", message)
+    logEvent("Meta eliminada", message)
+  }, [closeGoalEditor, editingGoalId, focusWidget, logEvent])
+
+  const handleNewGoalFieldChange = useCallback((field: keyof GoalFormState, value: string) => {
+    setNewGoalForm(prev => {
+      if (field === "status") {
+        return {
+          ...prev,
+          status: isGoalStatus(value) ? value : prev.status
+        }
+      }
+      return {
+        ...prev,
+        [field]: value
+      }
+    })
+  }, [])
+
+  const handleAddGoal = useCallback(() => {
+    setNewGoalError(null)
+
+    const trimmedTitle = newGoalForm.title.trim()
+    if (!trimmedTitle) {
+      setNewGoalError("Necesitas darle un nombre a la meta.")
+      return
+    }
+
+    const targetAmount = parseNumericAmount(newGoalForm.targetAmount)
+    if (targetAmount === undefined || targetAmount <= 0) {
+      setNewGoalError("Define un monto objetivo válido.")
+      return
+    }
+
+    const savedAmountRaw = parseNumericAmount(newGoalForm.saved)
+    const savedAmount = savedAmountRaw !== undefined && savedAmountRaw >= 0 ? savedAmountRaw : 0
+
+    const deadlineValue = newGoalForm.deadline
+      ? new Date(newGoalForm.deadline).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10)
+
+    const statusValue = isGoalStatus(newGoalForm.status)
+      ? newGoalForm.status
+      : savedAmount >= targetAmount
+        ? "logrado"
+        : "en_progreso"
+
+    const newGoal: Goal = {
+      id: createGoalId(),
+      title: trimmedTitle,
+      targetAmount,
+      saved: savedAmount,
+      deadline: deadlineValue,
+      status: statusValue
+    }
+
+    setGoals(prev => [...prev, newGoal])
+    setIsAddingGoal(false)
+    resetNewGoalForm()
+
+    const message = `Meta "${trimmedTitle}" agregada.`
+    focusWidget("goals", message)
+    logEvent("Meta agregada", message)
+  }, [focusWidget, logEvent, newGoalForm, resetNewGoalForm])
+
+  const toggleAddGoalForm = useCallback(() => {
+    setNewGoalError(null)
+    if (isAddingGoal) {
+      setIsAddingGoal(false)
+      resetNewGoalForm()
+    } else {
+      closeGoalEditor()
+      resetNewGoalForm()
+      setIsAddingGoal(true)
+    }
+  }, [closeGoalEditor, isAddingGoal, resetNewGoalForm])
 
   const handleAssistantAction = useCallback((action: AssistantAction) => {
     const type = action.type
@@ -353,10 +598,255 @@ export default function NeobancoDemo() {
         logEvent("Presupuesto actualizado", detail)
         break
       }
+      case "create_goal": {
+        const payload = (action.payload ?? {}) as {
+          title?: string
+          goalTitle?: string
+          goalName?: string
+          targetAmount?: number | string
+          target?: number | string
+          amount?: number | string
+          saved?: number | string
+          savedAmount?: number | string
+          current?: number | string
+          currentAmount?: number | string
+          deadline?: string
+          goalDeadline?: string
+          dueDate?: string
+          status?: string
+          goalStatus?: string
+        }
+
+        const title = payload.title ?? payload.goalTitle ?? payload.goalName
+        const trimmedTitle = title?.trim()
+        if (!trimmedTitle) break
+
+        const targetCandidate = parseNumericAmount(payload.targetAmount ?? payload.target ?? payload.amount)
+        const savedCandidate = parseNumericAmount(payload.saved ?? payload.savedAmount ?? payload.current ?? payload.currentAmount)
+
+        if (targetCandidate === undefined || targetCandidate <= 0) {
+          break
+        }
+
+        const hasSavedCandidate = savedCandidate !== undefined && savedCandidate >= 0
+        const savedValue = hasSavedCandidate ? Math.min(savedCandidate, targetCandidate) : 0
+        const deadlineInput = payload.deadline ?? payload.goalDeadline ?? payload.dueDate
+        const deadline = deadlineInput ? new Date(deadlineInput).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
+        const statusCandidate = payload.status ?? payload.goalStatus
+        let operation: "created" | "updated" = "created"
+        let resultingTitle = trimmedTitle
+
+        setGoals(prev => {
+          const exists = prev.find(goal => normalizeGoalTitle(goal.title) === normalizeGoalTitle(trimmedTitle))
+          if (exists) {
+            operation = "updated"
+            return prev.map(goal => {
+              if (goal.id !== exists.id) return goal
+
+              const updatedSaved = hasSavedCandidate ? Math.min(savedCandidate!, targetCandidate) : goal.saved
+              const updatedStatus: GoalStatus = isGoalStatus(statusCandidate)
+                ? statusCandidate
+                : hasSavedCandidate
+                  ? (updatedSaved >= targetCandidate
+                    ? "logrado"
+                    : goal.status === "pausado"
+                      ? "pausado"
+                      : "en_progreso")
+                  : goal.status === "logrado" && updatedSaved < targetCandidate
+                    ? "en_progreso"
+                    : goal.status
+
+              resultingTitle = trimmedTitle
+
+              return {
+                ...goal,
+                title: trimmedTitle,
+                targetAmount: targetCandidate,
+                saved: updatedSaved,
+                deadline,
+                status: updatedStatus
+              }
+            })
+          }
+
+          const inferredStatus: GoalStatus = isGoalStatus(statusCandidate)
+            ? statusCandidate
+            : savedValue >= targetCandidate
+              ? "logrado"
+              : "en_progreso"
+
+          return [
+            ...prev,
+            {
+              id: createGoalId(),
+              title: trimmedTitle,
+              targetAmount: targetCandidate,
+              saved: savedValue,
+              deadline,
+              status: inferredStatus
+            }
+          ]
+        })
+
+        const message = operation === "created"
+          ? hasSavedCandidate
+            ? `Meta "${resultingTitle}" agregada.`
+            : `Meta "${resultingTitle}" agregada. Asumí un ahorro inicial de $0.`
+          : hasSavedCandidate
+            ? `Meta "${resultingTitle}" actualizada.`
+            : `Meta "${resultingTitle}" actualizada.`
+        focusWidget("goals", message)
+        logEvent("Gestión de metas", message)
+        closeGoalEditor()
+        break
+      }
+      case "update_goal": {
+        const payload = (action.payload ?? {}) as {
+          id?: string
+          goalId?: string
+          title?: string
+          goalTitle?: string
+          goalName?: string
+          target?: number | string
+          targetAmount?: number | string
+          goalTarget?: number | string
+          amount?: number | string
+          saved?: number | string
+          savedAmount?: number | string
+          current?: number | string
+          currentAmount?: number | string
+          deadline?: string
+          goalDeadline?: string
+          dueDate?: string
+          status?: string
+          goalStatus?: string
+          newTitle?: string
+          updatedTitle?: string
+          renameTo?: string
+        }
+
+        const candidates = [payload.goalTitle, payload.goalName].filter((value): value is string => Boolean(value?.trim()))
+        const identifier = payload.goalId ?? payload.id
+        if (!identifier && !candidates.length && !payload.title) {
+          break
+        }
+
+        const normalizedCandidates = candidates.map(value => normalizeGoalTitle(value))
+
+        const titleForMatch = identifier ? undefined : (payload.title && !candidates.length ? payload.title : undefined)
+        if (titleForMatch) {
+          normalizedCandidates.push(normalizeGoalTitle(titleForMatch))
+        }
+
+        const newTitleCandidate = [payload.newTitle, payload.updatedTitle, payload.renameTo].find(value => typeof value === "string" && value.trim().length > 0)
+
+        const titleFromPayload = payload.title?.trim()
+
+        const targetCandidate = parseNumericAmount(payload.targetAmount ?? payload.target ?? payload.goalTarget ?? payload.amount)
+        const savedCandidate = parseNumericAmount(payload.saved ?? payload.savedAmount ?? payload.current ?? payload.currentAmount)
+        const deadlineInput = payload.deadline ?? payload.goalDeadline ?? payload.dueDate
+        const statusCandidate = payload.status ?? payload.goalStatus
+
+        let matched = false
+        let updatedGoalTitle: string | null = null
+
+        setGoals(prev => prev.map(goal => {
+          const matchesId = identifier ? goal.id === identifier : false
+          const matchesTitle = normalizedCandidates.length
+            ? normalizedCandidates.includes(normalizeGoalTitle(goal.title))
+            : false
+          const shouldUpdate = matchesId || matchesTitle
+          if (!shouldUpdate) {
+            return goal
+          }
+          matched = true
+
+          const updated: Goal = {
+            ...goal,
+            title: (() => {
+              if (newTitleCandidate) {
+                return newTitleCandidate.trim()
+              }
+              if (identifier && titleFromPayload && normalizeGoalTitle(titleFromPayload) !== normalizeGoalTitle(goal.title)) {
+                return titleFromPayload
+              }
+              if (!identifier && candidates.length && titleFromPayload && normalizeGoalTitle(titleFromPayload) !== normalizeGoalTitle(candidates[0]!)) {
+                return titleFromPayload
+              }
+              return goal.title
+            })(),
+            targetAmount: targetCandidate !== undefined && targetCandidate > 0 ? targetCandidate : goal.targetAmount,
+            saved: savedCandidate !== undefined && savedCandidate >= 0 ? savedCandidate : goal.saved,
+            deadline: deadlineInput ? new Date(deadlineInput).toISOString().slice(0, 10) : goal.deadline,
+            status: isGoalStatus(statusCandidate)
+              ? statusCandidate
+              : (() => {
+                if (savedCandidate !== undefined && targetCandidate !== undefined && targetCandidate > 0) {
+                  return savedCandidate >= targetCandidate ? "logrado" : goal.status
+                }
+                if (savedCandidate !== undefined && savedCandidate >= goal.targetAmount) {
+                  return "logrado"
+                }
+                return goal.status
+              })()
+          }
+
+          updatedGoalTitle = updated.title
+
+          return updated
+        }))
+
+        if (matched) {
+          const targetText = updatedGoalTitle
+            ? `Meta "${updatedGoalTitle}" actualizada.`
+            : targetCandidate !== undefined
+              ? `Meta actualizada a ${formatCurrency(targetCandidate)}`
+              : "Meta actualizada"
+          focusWidget("goals", targetText)
+          logEvent("Meta actualizada", targetText)
+          closeGoalEditor()
+        }
+        break
+      }
+      case "delete_goal": {
+        const payload = (action.payload ?? {}) as {
+          id?: string
+          goalId?: string
+          title?: string
+          goalTitle?: string
+          goalName?: string
+        }
+
+        const identifier = payload.goalId ?? payload.id
+        const titleCandidate = payload.goalTitle ?? payload.goalName ?? payload.title
+        if (!identifier && !titleCandidate) {
+          break
+        }
+
+        const normalizedTitle = titleCandidate ? normalizeGoalTitle(titleCandidate) : null
+
+        let removedGoalTitle: string | null = null
+        setGoals(prev => prev.filter(goal => {
+          const matches = identifier ? goal.id === identifier : normalizedTitle ? normalizeGoalTitle(goal.title) === normalizedTitle : false
+          if (matches) {
+            removedGoalTitle = goal.title
+            return false
+          }
+          return true
+        }))
+
+        if (removedGoalTitle) {
+          const message = `Meta "${removedGoalTitle}" eliminada.`
+          focusWidget("goals", message)
+          logEvent("Meta eliminada", message)
+          closeGoalEditor()
+        }
+        break
+      }
       default:
         break
     }
-  }, [focusWidget, logEvent])
+      }, [closeGoalEditor, focusWidget, logEvent])
 
   const startChat = () => {
     setChatOpen(true)
@@ -537,6 +1027,238 @@ export default function NeobancoDemo() {
                     </div>
                   )
                 })}
+              </div>
+            </Card>
+
+            {/* Goals */}
+            <Card className={cn("p-6 mt-6", highlightedWidget === "goals" && "ring-2 ring-primary shadow-lg bg-white/90")}> 
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Target className="w-5 h-5 text-purple-600" />
+                  <h3 className="text-lg font-semibold">Metas y logros</h3>
+                </div>
+                <Button
+                  variant={isAddingGoal ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={toggleAddGoalForm}
+                  className="flex items-center space-x-1"
+                >
+                  {isAddingGoal ? (
+                    <XIcon className="w-4 h-4" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  <span>{isAddingGoal ? "Cerrar" : "Agregar"}</span>
+                </Button>
+              </div>
+              {highlightedWidget === "goals" && highlightMessage && (
+                <div className="mb-4 p-3 border border-primary/30 rounded-lg bg-primary/5 text-sm text-primary-800">
+                  {highlightMessage}
+                </div>
+              )}
+              <div className="space-y-4">
+                {goals.length === 0 && !isAddingGoal ? (
+                  <p className="text-sm text-gray-500">
+                    Aún no tienes metas registradas. Agrega una para comenzar a ahorrar con Axo.
+                  </p>
+                ) : (
+                  goals.map(goal => {
+                    const statusBadge = GOAL_STATUS_LABELS[goal.status]
+                    const progress = goal.targetAmount > 0 ? Math.min(100, (goal.saved / goal.targetAmount) * 100) : 0
+                    const remaining = Math.max(0, goal.targetAmount - goal.saved)
+                    const isEditing = editingGoalId === goal.id
+                    const editingForm = editingGoalForm && isEditing ? editingGoalForm : null
+
+                    return (
+                      <div key={goal.id} className="rounded-lg border border-gray-200 p-4 bg-gray-50">
+                        {isEditing && editingForm ? (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-600 uppercase">Título</label>
+                              <input
+                                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                                value={editingForm.title}
+                                onChange={event => handleEditGoalField("title", event.target.value)}
+                              />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase">Objetivo</label>
+                                <input
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                                  value={editingForm.targetAmount}
+                                  inputMode="decimal"
+                                  onChange={event => handleEditGoalField("targetAmount", event.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase">Ahorrado</label>
+                                <input
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                                  value={editingForm.saved}
+                                  inputMode="decimal"
+                                  onChange={event => handleEditGoalField("saved", event.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase">Fecha objetivo</label>
+                                <input
+                                  type="date"
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                                  value={editingForm.deadline}
+                                  onChange={event => handleEditGoalField("deadline", event.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase">Estado</label>
+                                <select
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                                  value={editingForm.status}
+                                  onChange={event => handleEditGoalField("status", event.target.value)}
+                                >
+                                  <option value="en_progreso">En progreso</option>
+                                  <option value="logrado">Logrado</option>
+                                  <option value="pausado">Pausado</option>
+                                </select>
+                              </div>
+                            </div>
+                            {goalFormError && (
+                              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{goalFormError}</p>
+                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              <Button variant="ghost" onClick={closeGoalEditor} className="flex items-center space-x-1">
+                                <XIcon className="w-4 h-4" />
+                                <span>Cancelar</span>
+                              </Button>
+                              <Button onClick={handleSaveGoalEdit} className="flex items-center space-x-1">
+                                <Check className="w-4 h-4" />
+                                <span>Guardar</span>
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="font-semibold text-gray-900">{goal.title}</p>
+                                <span className={cn("mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", statusBadge.badge)}>
+                                  {statusBadge.label}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openGoalEditor(goal)}
+                                  title="Editar meta"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    if (window.confirm(`¿Eliminar la meta "${goal.title}"?`)) {
+                                      handleRemoveGoal(goal)
+                                    }
+                                  }}
+                                  title="Eliminar meta"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-sm text-gray-600">
+                              <span>Objetivo: {formatCurrency(goal.targetAmount)}</span>
+                              <span>Ahorrado: {formatCurrency(goal.saved)}</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className={cn("h-2 rounded-full", progress >= 100 ? "bg-emerald-500" : "bg-primary")}
+                                style={{ width: `${Math.min(100, progress)}%` }}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>Restante: {formatCurrency(remaining)}</span>
+                              <span>Fecha objetivo: {formatGoalDeadline(goal.deadline)}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+
+                {isAddingGoal && (
+                  <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4 space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 uppercase">Título</label>
+                      <input
+                        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                        value={newGoalForm.title}
+                        onChange={event => handleNewGoalFieldChange("title", event.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 uppercase">Objetivo</label>
+                        <input
+                          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          value={newGoalForm.targetAmount}
+                          inputMode="decimal"
+                          onChange={event => handleNewGoalFieldChange("targetAmount", event.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 uppercase">Ahorrado</label>
+                        <input
+                          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          value={newGoalForm.saved}
+                          inputMode="decimal"
+                          onChange={event => handleNewGoalFieldChange("saved", event.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 uppercase">Fecha objetivo</label>
+                        <input
+                          type="date"
+                          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          value={newGoalForm.deadline}
+                          onChange={event => handleNewGoalFieldChange("deadline", event.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 uppercase">Estado</label>
+                        <select
+                          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          value={newGoalForm.status}
+                          onChange={event => handleNewGoalFieldChange("status", event.target.value)}
+                        >
+                          <option value="en_progreso">En progreso</option>
+                          <option value="logrado">Logrado</option>
+                          <option value="pausado">Pausado</option>
+                        </select>
+                      </div>
+                    </div>
+                    {newGoalError && (
+                      <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{newGoalError}</p>
+                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" onClick={toggleAddGoalForm} className="flex items-center space-x-1">
+                        <XIcon className="w-4 h-4" />
+                        <span>Cancelar</span>
+                      </Button>
+                      <Button onClick={handleAddGoal} className="flex items-center space-x-1">
+                        <Check className="w-4 h-4" />
+                        <span>Guardar meta</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
 
