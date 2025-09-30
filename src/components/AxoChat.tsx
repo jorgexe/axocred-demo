@@ -48,6 +48,10 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined") return false
+    return window.innerWidth < 640
+  })
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
@@ -56,6 +60,46 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { isVoiceMode, toggleVoiceMode } = useVoiceAdvanced()
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const updateViewportFlag = () => {
+      const isMobile = window.innerWidth < 640
+      setIsMobileViewport(isMobile)
+
+      if (isMobile) {
+        setIsMinimized(false)
+      }
+    }
+
+    updateViewportFlag()
+    window.addEventListener("resize", updateViewportFlag)
+    return () => window.removeEventListener("resize", updateViewportFlag)
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen || !isMobileViewport) return
+    if (typeof document === "undefined") return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isOpen, isMobileViewport])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsMinimized(false)
+      return
+    }
+
+    if (isMobileViewport) {
+      setIsMinimized(false)
+    }
+  }, [isOpen, isMobileViewport])
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -267,79 +311,144 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
   if (!isOpen) return null
 
   return (
-    <div className={cn(
-      "fixed bottom-6 right-6 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-300 ease-in-out z-50",
-      isMinimized ? "w-80 h-16" : "w-96 h-[600px]",
-      className
-    )}>
+    <div
+      className={cn(
+        "fixed z-[999] bg-white flex flex-col transition-all duration-300 ease-in-out overflow-hidden",
+        isMobileViewport
+          ? "inset-0 rounded-none border-0 w-full h-[100dvh]"
+          : cn(
+            "right-6 bottom-6 left-auto top-auto rounded-2xl border border-gray-200 shadow-2xl",
+            isMinimized ? "w-80 h-16" : "w-96 h-[600px]"
+          ),
+        className
+      )}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-primary/5 rounded-t-2xl">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm ring-2 ring-primary/20">
-            <Image
-              src="/images/axo.png"
-              alt="Axo"
-              width={32}
-              height={32}
-              className="rounded-full"
-            />
+      {isMobileViewport ? (
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white/90 backdrop-blur">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm ring-2 ring-primary/20">
+              <Image
+                src="/images/axo.png"
+                alt="Axo"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Axo</h3>
+              <p className="text-xs text-green-600 flex items-center">
+                <span aria-hidden="true" className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                En línea
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">Axo</h3>
-            <p className="text-xs text-green-600 flex items-center">
-              <span aria-hidden="true" className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-              En línea
-            </p>
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowHistory(true)}
+              className="h-9 w-9"
+              title="Ver historial de conversaciones"
+            >
+              <History className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={isVoiceMode ? "default" : "ghost"}
+              size="icon"
+              onClick={toggleVoiceMode}
+              className={cn(
+                "h-9 w-9",
+                isVoiceMode && "bg-primary text-white hover:bg-primary/90"
+              )}
+              title={isVoiceMode ? "Cambiar a modo texto" : "Cambiar a modo voz"}
+            >
+              {isVoiceMode ? <Volume2 className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-9 w-9"
+              title="Cerrar chat"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-        
-        <div className="flex items-center space-x-1">
-          {/* History Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowHistory(true)}
-            className="h-8 w-8"
-            title="Ver historial de conversaciones"
-          >
-            <History className="w-4 h-4" />
-          </Button>
-          {/* Voice/Text Mode Toggle */}
-          <Button
-            variant={isVoiceMode ? "default" : "ghost"}
-            size="icon"
-            onClick={toggleVoiceMode}
-            className={cn(
-              "h-8 w-8",
-              isVoiceMode && "bg-primary text-white hover:bg-primary/90"
-            )}
-            title={isVoiceMode ? "Cambiar a modo texto" : "Cambiar a modo voz"}
-          >
-            {isVoiceMode ? <Volume2 className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMinimized(!isMinimized)}
-            className="h-8 w-8"
-          >
-            {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-8 w-8"
-          >
-            <X className="w-4 h-4" />
-          </Button>
+      ) : (
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-primary/5 rounded-t-2xl">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm ring-2 ring-primary/20">
+              <Image
+                src="/images/axo.png"
+                alt="Axo"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Axo</h3>
+              <p className="text-xs text-green-600 flex items-center">
+                <span aria-hidden="true" className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                En línea
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowHistory(true)}
+              className="h-8 w-8"
+              title="Ver historial de conversaciones"
+            >
+              <History className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={isVoiceMode ? "default" : "ghost"}
+              size="icon"
+              onClick={toggleVoiceMode}
+              className={cn(
+                "h-8 w-8",
+                isVoiceMode && "bg-primary text-white hover:bg-primary/90"
+              )}
+              title={isVoiceMode ? "Cambiar a modo texto" : "Cambiar a modo voz"}
+            >
+              {isVoiceMode ? <Volume2 className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMinimized(!isMinimized)}
+              className="h-8 w-8"
+            >
+              {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Messages */}
       {!isMinimized && (
         <>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
+          <div
+            className={cn(
+              "flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50",
+              !isMobileViewport && "bg-gray-50/50"
+            )}
+          >
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -398,7 +507,10 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
           </div>
 
           {/* Input - Text Mode */}
-          <div className="p-4 border-t border-gray-200 bg-white rounded-b-2xl">
+          <div className={cn(
+            "p-4 border-t border-gray-200 bg-white",
+            !isMobileViewport && "rounded-b-2xl"
+          )}>
             <form onSubmit={handleSubmit} className="flex items-end space-x-2">
               <div className="flex-1 relative">
                 <input
