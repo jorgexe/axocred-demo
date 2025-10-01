@@ -61,3 +61,44 @@ input, textarea, select {
 input::placeholder, textarea::placeholder {
   color: #718096 !important;
 }
+
+.device-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: clamp(8px, 3vh, 40px) auto;
+}
+
+.device-shell > .marvel-device {
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform 0.5s ease, filter 0.5s ease;
+  filter: drop-shadow(0 40px 120px rgba(6, 8, 20, 0.55));
+}
+
+.device-shell--desktop {
+  margin-top: clamp(14px, 4vh, 40px);
+}
+
+.device-shell--phone {
+  margin-top: clamp(12px, 4vh, 36px);
+}
+
+.marvel-device .screen {
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
+  background-color: #ffffff;
+}
+
+.marvel-device .screen iframe {
+  display: block;
+}
+
+.marvel-device.macbook .screen {
+  border-radius: 12px;
+}
+
+.marvel-device.iphone-x .screen {
+  border-radius: 32px;
+}
