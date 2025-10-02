@@ -1,10 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-// Device frameset removed - using simple responsive layout instead
+import Image from "next/image"
+import { useEffect, useMemo, useRef, useState } from "react"
+import "react-device-frameset/styles/device-emulator.min.css"
+import "react-device-frameset/styles/marvel-devices.min.css"
+import { DeviceFrameset, DeviceOptions } from "react-device-frameset"
 import { Monitor, Smartphone } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 type DeviceKey = "macbook" | "iphone"
 type DeviceName = "MacBook Pro" | "iPhone X"
@@ -36,15 +40,15 @@ const DEVICE_CONFIG: Record<DeviceKey, DeviceConfig> = {
     device: "MacBook Pro",
     icon: Monitor,
     zoom: {
-      base: 0.85,
+      base: 0.8,
       min: 0.6,
       max: 1.6
     },
     viewportScale: {
-      width: 0.78,
-      height: 0.92
+      width: 0.74,
+      height: 0.88
     },
-    viewportPadding: 160,
+    viewportPadding: 220,
     contentViewport: {
       width: 1280,
       height: 800
@@ -64,14 +68,20 @@ const DEVICE_CONFIG: Record<DeviceKey, DeviceConfig> = {
       width: 0.26,
       height: 1
     },
-    viewportPadding: 220
+    viewportPadding: 220,
+    contentViewport: {
+      width: 375,
+      height: 812
+    }
   }
 }
 
 export default function DeviceShowcasePage() {
+  const router = useRouter()
   const [selectedDevice, setSelectedDevice] = useState<DeviceKey>("macbook")
   const config = DEVICE_CONFIG[selectedDevice]
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
+  const hasClientRedirectedRef = useRef(false)
 
   const baseWidth = selectedDevice === "iphone" ? 375 : 960
   const baseHeight = selectedDevice === "iphone" ? 812 : 600
@@ -93,6 +103,24 @@ export default function DeviceShowcasePage() {
       window.removeEventListener("resize", updateViewport)
     }
   }, [])
+
+  useEffect(() => {
+    if (hasClientRedirectedRef.current) {
+      return
+    }
+
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const isRootPath = window.location.pathname === "/"
+    const isSmallViewport = window.innerWidth < 1024
+
+    if (isRootPath && isSmallViewport) {
+      hasClientRedirectedRef.current = true
+      router.replace("/demo")
+    }
+  }, [router, viewport.width])
 
   const dynamicZoom = useMemo(() => {
     if (!viewport.width || !viewport.height) {
@@ -125,16 +153,24 @@ export default function DeviceShowcasePage() {
   ])
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-black text-white">
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-x-hidden overflow-y-auto bg-black text-white">
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.22),_transparent_65%)]"
         aria-hidden
       />
 
   <div className="relative z-10 flex h-full w-full flex-1 flex-col items-center justify-center px-4 py-10 sm:py-12 md:px-10 md:py-16">
-        <header className="absolute left-6 top-6 hidden flex-col gap-1 text-white/70 sm:flex">
+        <header className="absolute left-6 top-6 hidden flex-col gap-2 text-white/70 sm:flex">
           <span className="text-xs uppercase tracking-[0.4em] text-white/40">AxoCred Demo</span>
           <h1 className="text-2xl font-semibold text-white">Experiencia inmersiva</h1>
+          <Image
+            src="/images/qr-code.png"
+            alt="Código QR hacia la experiencia AxoCred"
+            width={120}
+            height={120}
+            priority
+            className="h-24 w-24 object-contain"
+          />
         </header>
 
         <aside className="absolute right-6 top-6 z-20">
@@ -169,25 +205,24 @@ export default function DeviceShowcasePage() {
             selectedDevice === "macbook" ? "device-shell--desktop" : "device-shell--phone"
           )}
         >
-          <div className="h-full w-full overflow-hidden rounded-lg bg-white shadow-2xl">
-            <div
-              className="origin-top-left"
-              style={{
-                width: contentViewport.width,
-                height: contentViewport.height,
-                transform: `scale(${contentScale})`
-              }}
-            >
-              <iframe
-                key={selectedDevice}
-                title={`${config.label} preview`}
-                src="/demo"
-                style={{ width: "100%", height: "100%" }}
-                className="border-0 bg-white"
-                allow="microphone; clipboard-read; clipboard-write; autoplay"
-              />
-            </div>
-          </div>
+          <DeviceFrameset
+            device={config.device as DeviceOptions}
+            color={config.color}
+            zoom={dynamicZoom}
+            style={{
+              transform: `scale(${dynamicZoom})`,
+              transformOrigin: "center center"
+            }}
+          >
+            <iframe
+              key={selectedDevice}
+              title={`${config.label} preview`}
+              src="/demo"
+              style={{ width: "100%", height: "100%" }}
+              className="border-0 bg-white"
+              allow="microphone; clipboard-read; clipboard-write; autoplay"
+            />
+          </DeviceFrameset>
         </div>
       </div>
     </div>
