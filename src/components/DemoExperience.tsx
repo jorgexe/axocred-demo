@@ -27,7 +27,8 @@ import {
   Plus,
   Check,
   X as XIcon,
-  Trash2
+  Trash2,
+  Menu
 } from "lucide-react"
 
 type Mood = "positivo" | "neutral" | "alerta"
@@ -189,6 +190,8 @@ export default function DemoExperience() {
   const [highlightedWidget, setHighlightedWidget] = useState<string | null>(null)
   const [highlightMessage, setHighlightMessage] = useState<string | null>(null)
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null)
 
   const [nextPayment, setNextPayment] = useState(() => ({
     amount: demoUserProfile.obligations.creditCard.nextPaymentAmount,
@@ -302,6 +305,32 @@ export default function DemoExperience() {
       return [event, ...prev].slice(0, 6)
     })
   }, [])
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      return
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMobileMenuOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    document.addEventListener("keydown", handleEscape)
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("keydown", handleEscape)
+    }
+  }, [isMobileMenuOpen])
 
   const handleEditGoalField = useCallback((field: keyof GoalFormState, value: string) => {
     setEditingGoalForm(prev => {
@@ -866,34 +895,49 @@ export default function DemoExperience() {
     <div className="min-h-screen bg-gray-50">
       {/* Push Notification */}
       {showNotification && !chatOpen && (
-        <div className="fixed top-4 right-4 bg-white border border-gray-200 p-4 rounded-lg shadow-lg z-50 max-w-sm">
-          <div className="flex items-start space-x-3">
-            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
-              <Image
-                src="/images/axo.png"
-                alt="Axo"
-                width={24}
-                height={24}
-                className="rounded-full"
-              />
+        <div className="fixed bottom-28 right-6 z-50 max-w-xs flex flex-col items-end">
+          <div className="relative">
+            <div className="rounded-[20px] bg-white border border-primary/20 shadow-xl px-5 py-5 pr-14 text-sm text-gray-700">
+              <button
+                type="button"
+                onClick={() => setShowNotification(false)}
+                className="absolute right-3 top-3 text-gray-400 transition-colors hover:text-gray-600"
+                aria-label="Cerrar notificación"
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center ring-2 ring-primary/20 bg-white flex-shrink-0">
+                  <Image
+                    src="/images/axo.png"
+                    alt="Axo"
+                    width={24}
+                    height={24}
+                    className="rounded-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900 text-sm">Axo - Tu Asistente Financiero</p>
+                  <p className="text-xs leading-relaxed text-gray-600">
+                    Hola, soy Axo. Noté que este mes ha sido un poco diferente. ¿Tienes un minuto para revisar juntos tu próximo pago?
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button size="sm" onClick={startChat} className="text-xs px-3 py-2">
+                  Ver
+                </Button>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="font-semibold text-sm">Axo - Tu Asistente Financiero</p>
-              <p className="text-gray-600 text-xs">Hola, soy Axo. Noté que este mes ha sido un poco diferente. ¿Tienes un minuto para revisar juntos tu próximo pago?</p>
-            </div>
-            <Button 
-              size="sm" 
-              onClick={startChat}
-              className="text-xs"
-            >
-              Ver
-            </Button>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header
+        className="bg-white border-b border-gray-200"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)", paddingBottom: "0.75rem" }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
@@ -902,16 +946,59 @@ export default function DemoExperience() {
               </div>
               <h1 className="text-xl font-bold text-gray-900">FintechBank</h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon">
-                <Bell className="w-5 h-5" />
+            <div className="relative flex items-center" ref={mobileMenuRef}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                onClick={() => setIsMobileMenuOpen(prev => !prev)}
+                aria-label="Abrir menú"
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-header-menu"
+              >
+                <Menu className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon">
-                <Settings className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <User className="w-5 h-5" />
-              </Button>
+              <div className="hidden md:flex items-center space-x-4">
+                <Button variant="ghost" size="icon">
+                  <Bell className="w-5 h-5" />
+                </Button>
+                <Button variant="ghost" size="icon">
+                  <Settings className="w-5 h-5" />
+                </Button>
+                <Button variant="ghost" size="icon">
+                  <User className="w-5 h-5" />
+                </Button>
+              </div>
+              {isMobileMenuOpen && (
+                <div
+                  id="mobile-header-menu"
+                  className="absolute right-0 top-full mt-3 w-56 rounded-2xl border border-gray-200 bg-white shadow-xl p-2 text-sm"
+                >
+                  {[{
+                    icon: Bell,
+                    label: "Notificaciones"
+                  }, {
+                    icon: Settings,
+                    label: "Configuración"
+                  }, {
+                    icon: User,
+                    label: "Perfil"
+                  }].map(item => {
+                    const Icon = item.icon
+                    return (
+                      <Button
+                        key={item.label}
+                        variant="ghost"
+                        className="w-full justify-start gap-2 px-3 py-2 text-gray-700 hover:text-gray-900"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {item.label}
+                      </Button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
