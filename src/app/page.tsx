@@ -1,9 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import "react-device-frameset/styles/device-emulator.min.css"
-import "react-device-frameset/styles/marvel-devices.min.css"
-import { DeviceFrameset, DeviceOptions } from "react-device-frameset"
+// Device frameset removed - using simple responsive layout instead
 import { Monitor, Smartphone } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -75,9 +73,8 @@ export default function DeviceShowcasePage() {
   const config = DEVICE_CONFIG[selectedDevice]
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
 
-  const baseMetrics = DeviceOptions[config.device]
-  const baseWidth = baseMetrics?.width ?? (selectedDevice === "iphone" ? 375 : 960)
-  const baseHeight = baseMetrics?.height ?? (selectedDevice === "iphone" ? 812 : 600)
+  const baseWidth = selectedDevice === "iphone" ? 375 : 960
+  const baseHeight = selectedDevice === "iphone" ? 812 : 600
   const contentViewport = config.contentViewport ?? { width: baseWidth, height: baseHeight }
   const contentScale = config.contentViewport ? baseWidth / config.contentViewport.width : 1
 
@@ -172,27 +169,25 @@ export default function DeviceShowcasePage() {
             selectedDevice === "macbook" ? "device-shell--desktop" : "device-shell--phone"
           )}
         >
-          <DeviceFrameset device={config.device} color={config.color} zoom={dynamicZoom} width={baseWidth} height={baseHeight}>
-            <div className="h-full w-full overflow-hidden rounded-[inherit] bg-white">
-              <div
-                className="origin-top-left"
-                style={{
-                  width: contentViewport.width,
-                  height: contentViewport.height,
-                  transform: `scale(${contentScale})`
-                }}
-              >
-                <iframe
-                  key={selectedDevice}
-                  title={`${config.label} preview`}
-                  src="/demo"
-                  style={{ width: "100%", height: "100%" }}
-                  className="border-0 bg-white"
-                  allow="microphone; clipboard-read; clipboard-write; autoplay"
-                />
-              </div>
+          <div className="h-full w-full overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div
+              className="origin-top-left"
+              style={{
+                width: contentViewport.width,
+                height: contentViewport.height,
+                transform: `scale(${contentScale})`
+              }}
+            >
+              <iframe
+                key={selectedDevice}
+                title={`${config.label} preview`}
+                src="/demo"
+                style={{ width: "100%", height: "100%" }}
+                className="border-0 bg-white"
+                allow="microphone; clipboard-read; clipboard-write; autoplay"
+              />
             </div>
-          </DeviceFrameset>
+          </div>
         </div>
       </div>
     </div>

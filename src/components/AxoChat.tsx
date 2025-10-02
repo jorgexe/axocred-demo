@@ -15,7 +15,7 @@ import {
   History
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useVoiceAdvanced } from "@/hooks/useVoiceAdvanced"
+import { useVapiVoice } from '@/hooks/useVapiVoice'
 import { conversationStorage, type ConversationMessage } from "@/lib/conversationStorage"
 import { extractAssistantActions, deriveActionsFromText, type AssistantAction } from "@/lib/assistantActions"
 import ConversationHistory from "@/components/ConversationHistory"
@@ -59,7 +59,13 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { isVoiceMode, toggleVoiceMode } = useVoiceAdvanced()
+  const { 
+    isVoiceMode, 
+    isRecording, 
+    isConnected, 
+    error: voiceError, 
+    toggleVoiceMode 
+  } = useVapiVoice()
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -507,67 +513,143 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
           </div>
 
           {/* Input - Text Mode */}
-          <div className={cn(
-            "p-4 border-t border-gray-200 bg-white",
-            !isMobileViewport && "rounded-b-2xl"
-          )}>
-            <form onSubmit={handleSubmit} className="flex items-end space-x-2">
-              <div className="flex-1 relative">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Escribe tu mensaje..."
-                  disabled={isLoading}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-sm text-gray-900 placeholder:text-gray-500 bg-white"
-                />
-              </div>
+          {!isVoiceMode ? (
+            <div className={cn(
+              "p-4 border-t border-gray-200 bg-white",
+              !isMobileViewport && "rounded-b-2xl"
+            )}>
+              <form onSubmit={handleSubmit} className="flex items-end space-x-2">
+                <div className="flex-1 relative">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Escribe tu mensaje..."
+                    disabled={isLoading}
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-sm text-gray-900 placeholder:text-gray-500 bg-white"
+                  />
+                </div>
+                
+                <Button
+                  type="submit"
+                  disabled={!input.trim() || isLoading}
+                  className="h-12 px-4 rounded-xl"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </form>
               
-              <Button
-                type="submit"
-                disabled={!input.trim() || isLoading}
-                className="h-12 px-4 rounded-xl"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
-            </form>
-            
-            {/* Quick actions */}
-            <div className="flex flex-wrap gap-2 mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => sendMessage("Quiero tramitar un nuevo crédito")}
-                disabled={isLoading}
-                className="text-xs text-gray-700 hover:text-gray-900 border-gray-300 hover:border-primary/50"
-              >
-                💳 Tramitar nuevo crédito
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => sendMessage("Quiero realizar un pago de mi tarjeta")}
-                disabled={isLoading}
-                className="text-xs text-gray-700 hover:text-gray-900 border-gray-300 hover:border-primary/50"
-              >
-                 Realizar pago
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => sendMessage("Necesito renegociar mi crédito existente")}
-                disabled={isLoading}
-                className="text-xs text-gray-700 hover:text-gray-900 border-gray-300 hover:border-primary/50"
-              >
-                🤝 Renegociar crédito
-              </Button>
+              {/* Quick actions */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => sendMessage("Quiero tramitar un nuevo crédito")}
+                  disabled={isLoading}
+                  className="text-xs text-gray-700 hover:text-gray-900 border-gray-300 hover:border-primary/50"
+                >
+                  💳 Tramitar nuevo crédito
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => sendMessage("Quiero realizar un pago de mi tarjeta")}
+                  disabled={isLoading}
+                  className="text-xs text-gray-700 hover:text-gray-900 border-gray-300 hover:border-primary/50"
+                >
+                   Realizar pago
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => sendMessage("Necesito renegociar mi crédito existente")}
+                  disabled={isLoading}
+                  className="text-xs text-gray-700 hover:text-gray-900 border-gray-300 hover:border-primary/50"
+                >
+                  🤝 Renegociar crédito
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Voice Mode - Vapi Web SDK */
+            <div className={cn(
+              "p-4 border-t border-gray-200 bg-white",
+              !isMobileViewport && "rounded-b-2xl"
+            )}>
+              <div className="text-center py-8">
+                <div className="mb-4">
+                  <div className={cn(
+                    "w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3 transition-colors",
+                    isConnected 
+                      ? "bg-green-100" 
+                      : isRecording 
+                        ? "bg-red-100 animate-pulse" 
+                        : "bg-primary/10"
+                  )}>
+                    <Volume2 className={cn(
+                      "w-8 h-8 transition-colors",
+                      isConnected 
+                        ? "text-green-600" 
+                        : isRecording 
+                          ? "text-red-600" 
+                          : "text-primary"
+                    )} />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {isConnected ? "Conectado con Axo" : "Modo Voz Activado"}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {isConnected 
+                      ? "Habla con Axo, tu asistente financiero" 
+                      : "Haz clic para iniciar la conversación de voz"
+                    }
+                  </p>
+                </div>
+                
+                {/* Debug info */}
+                <div className="text-xs text-gray-500 mb-4 p-2 bg-gray-100 rounded">
+                  <p>Public Key: {process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ? '✅ Configurada' : '❌ No configurada'}</p>
+                  <p>Assistant ID: {process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID ? '✅ Configurado' : '❌ No configurado'}</p>
+                  <p>Estado: {isConnected ? '🟢 Conectado' : isRecording ? '🔴 Grabando' : '⚪ Listo'}</p>
+                </div>
+
+                {/* Error display */}
+                {voiceError && (
+                  <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                    <p className="text-sm text-red-700">Error: {voiceError}</p>
+                  </div>
+                )}
+
+                {/* Voice controls */}
+                <div className="space-y-3">
+                  {!isConnected ? (
+                    <Button
+                      onClick={toggleVoiceMode}
+                      className="w-full bg-primary hover:bg-primary/90 text-white"
+                      disabled={!process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || !process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID}
+                    >
+                      <Volume2 className="w-4 h-4 mr-2" />
+                      Iniciar Conversación de Voz
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={toggleVoiceMode}
+                      variant="outline"
+                      className="w-full border-red-300 text-red-600 hover:bg-red-50"
+                    >
+                      <Volume2 className="w-4 h-4 mr-2" />
+                      Terminar Llamada
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
       
