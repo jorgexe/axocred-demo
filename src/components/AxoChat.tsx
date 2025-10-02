@@ -325,7 +325,13 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
     >
       {/* Header */}
       {isMobileViewport ? (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white/90 backdrop-blur">
+        <div
+          className="flex items-center justify-between px-4 pb-3 border-b border-gray-200 bg-white/90 backdrop-blur"
+          style={{
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 26px)",
+            minHeight: "calc(env(safe-area-inset-top, 0px) + 84px)"
+          }}
+        >
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm ring-2 ring-primary/20">
               <Image
@@ -507,10 +513,15 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
           </div>
 
           {/* Input - Text Mode */}
-          <div className={cn(
-            "p-4 border-t border-gray-200 bg-white",
-            !isMobileViewport && "rounded-b-2xl"
-          )}>
+          <div
+            className={cn(
+              "p-4 border-t border-gray-200 bg-white",
+              !isMobileViewport && "rounded-b-2xl"
+            )}
+            style={isMobileViewport ? {
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)"
+            } : undefined}
+          >
             <form onSubmit={handleSubmit} className="flex items-end space-x-2">
               <div className="flex-1 relative">
                 <input
