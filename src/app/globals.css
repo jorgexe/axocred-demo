@@ -82,7 +82,22 @@ input::placeholder, textarea::placeholder {
 }
 
 .device-shell--phone {
-  margin-top: clamp(12px, 4vh, 36px);
+  margin-top: clamp(16px, 4.5vh, 48px);
+  transform: translateY(-1.5vh);
+}
+
+@media (max-width: 1024px) {
+  .device-shell--phone {
+    margin-top: clamp(12px, 4vh, 40px);
+    transform: translateY(-1vh);
+  }
+}
+
+@media (max-width: 640px) {
+  .device-shell--phone {
+    margin-top: clamp(8px, 3.5vh, 32px);
+    transform: translateY(-0.5vh);
+  }
 }
 
 .marvel-device .screen {
