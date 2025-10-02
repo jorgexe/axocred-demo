@@ -9,7 +9,8 @@ import {
   Clock,
   Search,
   X,
-  Download
+  Download,
+  ArrowLeft
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { conversationStorage, type ConversationSummary, type StoredConversation } from "@/lib/conversationStorage"
@@ -34,13 +35,38 @@ export default function ConversationHistory({
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [activeView, setActiveView] = useState<"list" | "detail">("list")
 
   // Load conversations when component opens
   useEffect(() => {
     if (isOpen) {
       loadConversations()
+      setSelectedConversation(null)
+      setActiveView("list")
     }
   }, [isOpen])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const updateViewport = () => {
+      setIsMobileViewport(window.innerWidth < 768)
+    }
+
+    updateViewport()
+    window.addEventListener("resize", updateViewport)
+    return () => window.removeEventListener("resize", updateViewport)
+  }, [])
+
+  useEffect(() => {
+    if (!isMobileViewport) {
+      setActiveView("list")
+      return
+    }
+
+    setActiveView(selectedConversation ? "detail" : "list")
+  }, [isMobileViewport, selectedConversation])
 
   const loadConversations = () => {
     setIsLoading(true)
@@ -58,6 +84,9 @@ export default function ConversationHistory({
     const conversation = conversationStorage.getConversation(conversationId)
     if (conversation) {
       setSelectedConversation(conversation)
+      if (isMobileViewport) {
+        setActiveView("detail")
+      }
     }
   }
 
@@ -123,12 +152,19 @@ export default function ConversationHistory({
 
   return (
     <div className={cn(
-      "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+      "fixed inset-0 bg-black/50 flex items-center justify-center z-[1200] p-4",
+      isMobileViewport && "p-0 items-stretch",
       className
     )}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
+      <div className={cn(
+        "bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden",
+        isMobileViewport && "rounded-none h-full max-w-none"
+      )}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-primary/5">
+        <div className={cn(
+          "flex items-center justify-between p-6 border-b border-gray-200 bg-primary/5",
+          isMobileViewport && "p-4"
+        )}>
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
               <History className="w-5 h-5 text-primary" />
@@ -141,17 +177,19 @@ export default function ConversationHistory({
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                onNewConversation()
-                onClose()
-              }}
-              className="text-primary border-primary hover:bg-primary/10"
-            >
-              Nueva Conversación
-            </Button>
+            {!isMobileViewport && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onNewConversation()
+                  onClose()
+                }}
+                className="text-primary border-primary hover:bg-primary/10"
+              >
+                Nueva Conversación
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -163,11 +201,18 @@ export default function ConversationHistory({
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className={cn(
+          "flex flex-1 overflow-hidden",
+          isMobileViewport ? "flex-col" : ""
+        )}>
           {/* Conversations List */}
-          <div className="w-1/2 border-r border-gray-200 flex flex-col">
+          {(!isMobileViewport || activeView === "list") && (
+            <div className={cn(
+              "border-gray-200 flex flex-col",
+              isMobileViewport ? "w-full border-b border-r-0" : "w-1/2 border-r"
+            )}>
             {/* Search */}
-            <div className="p-4 border-b border-gray-100">
+              <div className="p-4 border-b border-gray-100">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -180,8 +225,22 @@ export default function ConversationHistory({
               </div>
             </div>
 
+              {isMobileViewport && (
+                <div className="px-4 pb-3">
+                  <Button
+                    className="w-full bg-primary hover:bg-primary/90"
+                    onClick={() => {
+                      onNewConversation()
+                      onClose()
+                    }}
+                  >
+                    Nueva Conversación
+                  </Button>
+                </div>
+              )}
+
             {/* Conversations */}
-            <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center h-32">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -242,33 +301,51 @@ export default function ConversationHistory({
             </div>
 
             {/* Actions */}
-            {conversations.length > 0 && (
-              <div className="p-4 border-t border-gray-100">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearAll}
-                  className="w-full text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Limpiar todo el historial
-                </Button>
-              </div>
-            )}
-          </div>
+              {conversations.length > 0 && (
+                <div className="p-4 border-t border-gray-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAll}
+                    className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Limpiar todo el historial
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Conversation Detail */}
-          <div className="w-1/2 flex flex-col">
+          {(!isMobileViewport || activeView === "detail") && (
+            <div className={cn(
+              "flex flex-col",
+              isMobileViewport ? "w-full" : "w-1/2"
+            )}>
             {selectedConversation ? (
               <>
                 {/* Detail Header */}
                 <div className="p-4 border-b border-gray-100">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{selectedConversation.title}</h3>
-                      <p className="text-sm text-gray-500">
-                        {formatDate(selectedConversation.createdAt)} • {selectedConversation.messages.length} mensajes
-                      </p>
+                    <div className="flex items-center space-x-3">
+                      {isMobileViewport && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSelectedConversation(null)}
+                          className="h-8 w-8"
+                          aria-label="Regresar a la lista"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{selectedConversation.title}</h3>
+                        <p className="text-sm text-gray-500">
+                          {formatDate(selectedConversation.createdAt)} • {selectedConversation.messages.length} mensajes
+                        </p>
+                      </div>
                     </div>
                     <Button
                       onClick={handleLoadConversation}
@@ -319,7 +396,8 @@ export default function ConversationHistory({
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

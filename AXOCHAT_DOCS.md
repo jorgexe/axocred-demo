@@ -52,7 +52,7 @@ function App() {
         🦎 Abrir Axo
       </Button>
       
-      {/* Chat component */}
+      {/* Chat component approved */}
       <AxoChat 
         isOpen={chatOpen} 
         onClose={() => setChatOpen(false)} 
