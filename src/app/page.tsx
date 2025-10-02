@@ -148,28 +148,8 @@ export default function DeviceShowcasePage() {
     viewport
   ])
 
-  useEffect(() => {
-    const body = document.body
-    const html = document.documentElement
-    const previousBodyOverflow = body.style.overflow
-    const previousHtmlOverflow = html.style.overflow
-
-    if (selectedDevice === "iphone") {
-      body.style.overflow = "hidden"
-      html.style.overflow = "hidden"
-    } else {
-      body.style.overflow = ""
-      html.style.overflow = ""
-    }
-
-    return () => {
-      body.style.overflow = previousBodyOverflow
-      html.style.overflow = previousHtmlOverflow
-    }
-  }, [selectedDevice])
-
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-black text-white">
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-x-hidden overflow-y-auto bg-black text-white">
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.22),_transparent_65%)]"
         aria-hidden
