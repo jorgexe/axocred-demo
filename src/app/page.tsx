@@ -4,7 +4,7 @@ import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import "react-device-frameset/styles/device-emulator.min.css"
 import "react-device-frameset/styles/marvel-devices.min.css"
-import { DeviceFrameset, DeviceOptions } from "react-device-frameset"
+import { DeviceFrameset } from "react-device-frameset"
 import { Monitor, Smartphone } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -85,8 +85,6 @@ export default function DeviceShowcasePage() {
 
   const baseWidth = selectedDevice === "iphone" ? 375 : 960
   const baseHeight = selectedDevice === "iphone" ? 812 : 600
-  const contentViewport = config.contentViewport ?? { width: baseWidth, height: baseHeight }
-  const contentScale = config.contentViewport ? baseWidth / config.contentViewport.width : 1
 
   useEffect(() => {
     const updateViewport = () => {
@@ -206,7 +204,7 @@ export default function DeviceShowcasePage() {
           )}
         >
           <DeviceFrameset
-            device={config.device as DeviceOptions}
+            device={config.device}
             color={config.color}
             zoom={dynamicZoom}
             style={{
