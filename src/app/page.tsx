@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import "react-device-frameset/styles/device-emulator.min.css"
 import "react-device-frameset/styles/marvel-devices.min.css"
@@ -39,15 +40,15 @@ const DEVICE_CONFIG: Record<DeviceKey, DeviceConfig> = {
     device: "MacBook Pro",
     icon: Monitor,
     zoom: {
-      base: 0.85,
+      base: 0.8,
       min: 0.6,
       max: 1.6
     },
     viewportScale: {
-      width: 0.78,
-      height: 0.92
+      width: 0.74,
+      height: 0.88
     },
-    viewportPadding: 160,
+    viewportPadding: 220,
     contentViewport: {
       width: 1280,
       height: 800
@@ -156,9 +157,17 @@ export default function DeviceShowcasePage() {
       />
 
   <div className="relative z-10 flex h-full w-full flex-1 flex-col items-center justify-center px-4 py-10 sm:py-12 md:px-10 md:py-16">
-        <header className="absolute left-6 top-6 hidden flex-col gap-1 text-white/70 sm:flex">
+        <header className="absolute left-6 top-6 hidden flex-col gap-2 text-white/70 sm:flex">
           <span className="text-xs uppercase tracking-[0.4em] text-white/40">AxoCred Demo</span>
           <h1 className="text-2xl font-semibold text-white">Experiencia inmersiva</h1>
+          <Image
+            src="/images/qr-code.png"
+            alt="Código QR hacia la experiencia AxoCred"
+            width={120}
+            height={120}
+            priority
+            className="h-24 w-24 object-contain"
+          />
         </header>
 
         <aside className="absolute right-6 top-6 z-20">

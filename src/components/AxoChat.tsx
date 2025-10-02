@@ -315,7 +315,7 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
       className={cn(
         "fixed z-[999] bg-white flex flex-col transition-all duration-300 ease-in-out overflow-hidden",
         isMobileViewport
-          ? "inset-0 rounded-none border-0 w-full h-[100dvh]"
+          ? "inset-0 rounded-none border-0 w-full h-[100dvh] max-w-none"
           : cn(
             "right-6 bottom-6 left-auto top-auto rounded-2xl border border-gray-200 shadow-2xl",
             isMinimized ? "w-80 h-16" : "w-96 h-[600px]"
@@ -326,7 +326,7 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
       {/* Header */}
       {isMobileViewport ? (
         <div
-          className="flex items-center justify-between px-4 pb-3 border-b border-gray-200 bg-white/90 backdrop-blur"
+          className="flex items-center justify-between px-4 pb-3 border-b border-gray-200 bg-white"
           style={{
             paddingTop: "calc(env(safe-area-inset-top, 0px) + 26px)",
             minHeight: "calc(env(safe-area-inset-top, 0px) + 84px)"
@@ -451,8 +451,8 @@ export default function AxoChat({ isOpen, onClose, className, onAssistantAction 
         <>
           <div
             className={cn(
-              "flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50",
-              !isMobileViewport && "bg-gray-50/50"
+              "flex-1 overflow-y-auto p-4 space-y-4",
+              isMobileViewport ? "bg-white" : "bg-gray-50/50"
             )}
           >
             {messages.map((message) => (
