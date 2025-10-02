@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import "react-device-frameset/styles/device-emulator.min.css"
 import "react-device-frameset/styles/marvel-devices.min.css"
 import { DeviceFrameset, DeviceOptions } from "react-device-frameset"
 import { Monitor, Smartphone } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 type DeviceKey = "macbook" | "iphone"
 type DeviceName = "MacBook Pro" | "iPhone X"
@@ -71,9 +72,11 @@ const DEVICE_CONFIG: Record<DeviceKey, DeviceConfig> = {
 }
 
 export default function DeviceShowcasePage() {
+  const router = useRouter()
   const [selectedDevice, setSelectedDevice] = useState<DeviceKey>("macbook")
   const config = DEVICE_CONFIG[selectedDevice]
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
+  const hasClientRedirectedRef = useRef(false)
 
   const baseMetrics = DeviceOptions[config.device]
   const baseWidth = baseMetrics?.width ?? (selectedDevice === "iphone" ? 375 : 960)
@@ -96,6 +99,24 @@ export default function DeviceShowcasePage() {
       window.removeEventListener("resize", updateViewport)
     }
   }, [])
+
+  useEffect(() => {
+    if (hasClientRedirectedRef.current) {
+      return
+    }
+
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const isRootPath = window.location.pathname === "/"
+    const isSmallViewport = window.innerWidth < 1024
+
+    if (isRootPath && isSmallViewport) {
+      hasClientRedirectedRef.current = true
+      router.replace("/demo")
+    }
+  }, [router, viewport.width])
 
   const dynamicZoom = useMemo(() => {
     if (!viewport.width || !viewport.height) {
