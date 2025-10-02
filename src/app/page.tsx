@@ -127,6 +127,26 @@ export default function DeviceShowcasePage() {
     viewport
   ])
 
+  useEffect(() => {
+    const body = document.body
+    const html = document.documentElement
+    const previousBodyOverflow = body.style.overflow
+    const previousHtmlOverflow = html.style.overflow
+
+    if (selectedDevice === "iphone") {
+      body.style.overflow = "hidden"
+      html.style.overflow = "hidden"
+    } else {
+      body.style.overflow = ""
+      html.style.overflow = ""
+    }
+
+    return () => {
+      body.style.overflow = previousBodyOverflow
+      html.style.overflow = previousHtmlOverflow
+    }
+  }, [selectedDevice])
+
   return (
     <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-black text-white">
       <div
